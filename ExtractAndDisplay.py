@@ -19,13 +19,7 @@ def extractFrame(fileName, outputBuffer, maxFramesToLoad=9999):
     
     print(f'Reading frame {count} {success}')
     while success and count < maxFramesToLoad:
-        # get a jpg encoded frame
-        success, jpgImage = cv2.imencode('.jpg', image)
-
-        #encode the frame as base 64 to make debugging easier
-        jpgAsText = base64.b64encode(jpgImage)
-
-        # add the frame to the buffer
+        #put image in buffer
         outputBuffer.put(image)
        
         success,image = vidcap.read()
@@ -39,8 +33,7 @@ def convertToGrayscale(inputBuffer, outputBuffer, maxFramesToLoad=9999):
     frame = inputBuffer.get()
     while count < maxFramesToLoad and frame is not None:
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        success, jpgImage = cv2.imencode('.jpg', gray)
-        outputBuffer.put(jpgImage)
+        outputBuffer.put(gray)
         count += 1
         frame = inputBuffer.get()
     outputBuffer.put(None)
