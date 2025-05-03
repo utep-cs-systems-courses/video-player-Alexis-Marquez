@@ -4,9 +4,10 @@ import threading
 import cv2
 import numpy as np
 import base64
-import queue
 
-def extractFrames(fileName, outputBuffer, maxFramesToLoad=9999):
+from LockingQueue import LockingQueue
+
+def extractFrame(fileName, outputBuffer, maxFramesToLoad=9999):
     # Initialize frame count 
     count = 0
 
@@ -30,18 +31,29 @@ def extractFrames(fileName, outputBuffer, maxFramesToLoad=9999):
         success,image = vidcap.read()
         print(f'Reading frame {count} {success}')
         count += 1
-
+    outputBuffer.put(None)
     print('Frame extraction complete')
+
+def convertToGrayscale(inputBuffer, outputBuffer, maxFramesToLoad=9999):
+    count = 0
+    frame = inputBuffer.get()
+    while count < maxFramesToLoad and frame is not None:
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        success, jpgImage = cv2.imencode('.jpg', gray)
+        outputBuffer.put(jpgImage)
+        count += 1
+        frame = inputBuffer.get()
+    outputBuffer.put(None)
 
 
 def displayFrames(inputBuffer):
     # initialize frame count
     count = 0
-
-    # go through each frame in the buffer until the buffer is empty
-    while not inputBuffer.empty():
+    while True:
         # get the next frame
         frame = inputBuffer.get()
+        if frame is None:
+            break
 
         print(f'Displaying frame {count}')        
 
@@ -61,11 +73,22 @@ def displayFrames(inputBuffer):
 filename = 'clip.mp4'
 
 # shared queue  
-extractionQueue = queue.Queue()
-
+imageQueue = LockingQueue()
+grayQueue = LockingQueue()
 # extract the frames
-extractFrames(filename,extractionQueue, 72)
-
+extractThread = threading.Thread(target=extractFrame, args=(filename, imageQueue))
+grayThread = threading.Thread(target=convertToGrayscale, args=(imageQueue, grayQueue))
 # display the frames
-displayFrames(extractionQueue)
+displayThread = threading.Thread(target=displayFrames, args= (grayQueue,))
+
+extractThread.start()
+grayThread.start()
+displayThread.start()
+
+extractThread.join()
+grayThread.join()
+displayThread.join()
+
+
+
 
